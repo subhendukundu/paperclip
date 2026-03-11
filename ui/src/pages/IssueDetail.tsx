@@ -10,6 +10,7 @@ import { projectsApi } from "../api/projects";
 import { useCompany } from "../context/CompanyContext";
 import { usePanel } from "../context/PanelContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
+import { useToast } from "../context/ToastContext";
 import { queryKeys } from "../lib/queryKeys";
 import { useProjectOrder } from "../hooks/useProjectOrder";
 import { relativeTime, cn, formatTokens } from "../lib/utils";
@@ -148,6 +149,7 @@ export function IssueDetail() {
   const { selectedCompanyId } = useCompany();
   const { openPanel, closePanel, panelVisible, setPanelVisible } = usePanel();
   const { setBreadcrumbs } = useBreadcrumbs();
+  const { pushToast } = useToast();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [moreOpen, setMoreOpen] = useState(false);
@@ -449,7 +451,9 @@ export function IssueDetail() {
       invalidateIssue();
     },
     onError: (err) => {
-      setAttachmentError(err instanceof Error ? err.message : "Upload failed");
+      const msg = err instanceof Error ? err.message : "Upload failed";
+      setAttachmentError(msg);
+      pushToast({ title: "Upload failed", body: msg, tone: "error" });
     },
   });
 
@@ -504,9 +508,11 @@ export function IssueDetail() {
   const ancestors = issue.ancestors ?? [];
 
   const handleFilePicked = async (evt: ChangeEvent<HTMLInputElement>) => {
-    const file = evt.target.files?.[0];
-    if (!file) return;
-    await uploadAttachment.mutateAsync(file);
+    const files = evt.target.files;
+    if (!files || files.length === 0) return;
+    for (const file of Array.from(files)) {
+      await uploadAttachment.mutateAsync(file);
+    }
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -679,7 +685,7 @@ export function IssueDetail() {
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/png,image/jpeg,image/webp,image/gif"
+              multiple
               className="hidden"
               onChange={handleFilePicked}
             />
@@ -690,7 +696,7 @@ export function IssueDetail() {
               disabled={uploadAttachment.isPending}
             >
               <Paperclip className="h-3.5 w-3.5 mr-1.5" />
-              {uploadAttachment.isPending ? "Uploading..." : "Upload image"}
+              {uploadAttachment.isPending ? "Uploading..." : "Upload file"}
             </Button>
           </div>
         </div>
